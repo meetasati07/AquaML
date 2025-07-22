@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 import xgboost as xgb
 from sklearn.impute import SimpleImputer
-
+from lstm import train_lstm_model
 
 @st.cache_data
 def load_data(file_path):
@@ -82,11 +82,6 @@ def train_and_evaluate_models(dst_with_emd):
     y = data[target]
 
     # Handle missing values in features
-    # Option 1: Drop rows with any missing values
-    # X = X.dropna()
-    # y = y[X.index]
-
-    # Option 2: Impute missing values (better approach)
     imputer = SimpleImputer(strategy='mean')
     X_imputed = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
 
@@ -124,22 +119,17 @@ def train_and_evaluate_models(dst_with_emd):
             'RMSE': round(rmse, 4)
         })
 
-    # Add placeholder high metrics for LSTM & LSTM+CNN
-    metrics_list.append({
-        'Model': 'LSTM',
-        'Accuracy': 0.89, 'Precision': 0.88, 'Recall': 0.89, 'F1 Score': 0.885, 'MSE': 0.07, 'RMSE': 0.26
-    })
-    metrics_list.append({
-        'Model': 'LSTM+CNN',
-        'Accuracy': 0.93, 'Precision': 0.92, 'Recall': 0.93, 'F1 Score': 0.925, 'MSE': 0.05, 'RMSE': 0.22
-    })
+    lstm_metrics = train_lstm_model(dst_with_emd)
+    metrics_list.append(lstm_metrics)
+
+    # OPTIONAL: Simulated deep models if you still want them
+    # metrics_list.append({...})  ← remove these if you're using real models now
 
     metrics_df = pd.DataFrame(metrics_list)
 
     st.write("📊 **Model Comparison Table:**")
     st.dataframe(metrics_df)
 
-    # Optional: plot bar chart
     st.subheader("📈 Accuracy Comparison")
     st.bar_chart(metrics_df.set_index('Model')['Accuracy'])
 
@@ -148,7 +138,6 @@ def train_and_evaluate_models(dst_with_emd):
     st.success(f"✅ Best model is **{best_model['Model']}** with Accuracy = {best_model['Accuracy']}")
 
     return metrics_df
-
 
 if __name__ == "__main__":
     emd_per_sample()
