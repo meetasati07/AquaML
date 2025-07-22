@@ -12,6 +12,7 @@ from sklearn.svm import SVC
 import xgboost as xgb
 from sklearn.impute import SimpleImputer
 from lstm import train_lstm_model
+from lstm_cnn import train_lstm_cnn_model
 
 @st.cache_data
 def load_data(file_path):
@@ -121,6 +122,9 @@ def train_and_evaluate_models(dst_with_emd):
 
     lstm_metrics = train_lstm_model(dst_with_emd)
     metrics_list.append(lstm_metrics)
+
+    lstm_cnn_metrics = train_lstm_cnn_model(dst_with_emd)
+    metrics_list.append(lstm_cnn_metrics)
 
     # OPTIONAL: Simulated deep models if you still want them
     # metrics_list.append({...})  ← remove these if you're using real models now
