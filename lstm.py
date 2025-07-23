@@ -1,83 +1,63 @@
-# lstm_model.py
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error
+from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error
 
-
-def train_lstm_model(data):
-    """
-    Train and evaluate an LSTM model on the given dataset with EMD features.
-    Assumes 'Potability' is the target column.
-    """
-
+def train_lstm_model(dataframe):
     target = 'Potability'
 
-    # Drop rows with missing target
-    data = data.dropna(subset=[target])
+    # Drop rows where target is missing
+    data = dataframe.dropna(subset=[target])
 
-    # Separate features and target
     X = data.drop(columns=[target])
     y = data[target]
 
-    # Impute missing values
+    # Handle missing values in features
     imputer = SimpleImputer(strategy='mean')
-    X_imputed = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
+    X_imputed = imputer.fit_transform(X)
 
-    # Normalize the features
-    scaler = MinMaxScaler()
+    # Scale features
+    scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_imputed)
 
-    # Reshape input for LSTM: (samples, timesteps, features)
-    # We'll treat each sample as a sequence of 1 timestep with n features
+    # Reshape for LSTM [samples, timesteps, features]
     X_reshaped = X_scaled.reshape((X_scaled.shape[0], 1, X_scaled.shape[1]))
 
-    # Train-test split
+    # Split data
     X_train, X_test, y_train, y_test = train_test_split(
-        X_reshaped, y, test_size=0.3, stratify=y, random_state=42
-    )
+        X_reshaped, y, test_size=0.3, random_state=42, stratify=y)
 
-    # Build LSTM model
+    # Define LSTM model
     model = Sequential()
-    model.add(LSTM(64, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=False))
+    model.add(LSTM(64, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
     model.add(Dropout(0.3))
-    model.add(Dense(32, activation='relu'))
+    model.add(LSTM(32))
+    model.add(Dropout(0.2))
     model.add(Dense(1, activation='sigmoid'))
 
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    # Early stopping to prevent overfitting
-    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    # Train model
+    model.fit(X_train, y_train, epochs=20, batch_size=16, validation_split=0.2,
+              callbacks=[EarlyStopping(patience=3)], verbose=0)
 
-    # Train the model
-    model.fit(
-        X_train, y_train,
-        validation_split=0.2,
-        epochs=50,
-        batch_size=32,
-        callbacks=[early_stop],
-        verbose=0  # Set to 1 to see training output
-    )
+    # Predict
+    y_pred_probs = model.predict(X_test).ravel()
+    y_pred = (y_pred_probs > 0.5).astype(int)
 
-    # Predict and evaluate
-    y_pred = model.predict(X_test).flatten()
-    y_pred_binary = (y_pred > 0.5).astype(int)
-
-    # Metrics
-    acc = accuracy_score(y_test, y_pred_binary)
-    prec = precision_score(y_test, y_pred_binary, zero_division=0)
-    rec = recall_score(y_test, y_pred_binary, zero_division=0)
-    f1 = f1_score(y_test, y_pred_binary, zero_division=0)
-    mse = mean_squared_error(y_test, y_pred_binary)
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred, zero_division=0)
+    rec = recall_score(y_test, y_pred, zero_division=0)
+    f1 = f1_score(y_test, y_pred, zero_division=0)
+    mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
 
-    metrics = {
+    return {
         'Model': 'LSTM',
         'Accuracy': round(acc, 4),
         'Precision': round(prec, 4),
@@ -86,5 +66,3 @@ def train_lstm_model(data):
         'MSE': round(mse, 4),
         'RMSE': round(rmse, 4)
     }
-
-    return metrics
